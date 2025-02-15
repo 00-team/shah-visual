@@ -1,7 +1,8 @@
 use core::panic;
 use std::{fs::read_to_string, path::PathBuf, sync::OnceLock};
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Default, serde::Deserialize, serde::Serialize)]
+#[serde(default)]
 struct ConfigToml {
     quick_access: toml::Table,
 }
