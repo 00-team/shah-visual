@@ -8,7 +8,7 @@ struct ConfigToml {
 
 #[derive(Debug, Default)]
 pub struct Config {
-    quick_access: Vec<(String, PathBuf)>,
+    pub quick_access: Vec<(String, PathBuf)>,
 }
 
 pub fn config() -> &'static Config {

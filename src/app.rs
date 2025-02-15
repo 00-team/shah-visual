@@ -7,6 +7,7 @@ use egui::Context;
 use egui::ViewportCommand;
 use shah::error::SystemError;
 
+use crate::config::config;
 use crate::shortcuts as sc;
 
 // #[derive(Default)]
@@ -49,9 +50,11 @@ impl ShahApp {
         // let root = tiles.insert_horizontal_tile(tabs);
         // let tree = egui_tiles::Tree::new("main_tree", root, tiles);
 
+        let config = crate::config::config();
         let file_dialog = egui_file_dialog::FileDialog::new().add_quick_access("Hi", |qa| {
-            qa.add_path("gooje", "~/projects/g00je/core/");
-            qa.add_path("shah", "~/projects/00-team/shah/");
+            for (d, p) in config.quick_access.iter() {
+                qa.add_path(&d, p);
+            }
         });
 
         Ok(Self {
