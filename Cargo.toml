@@ -6,10 +6,10 @@ edition = "2021"
 [dependencies]
 shah = { path = "../shah/shah" }
 
-eframe = { version = "0.31", features = ["persistence"] }
-egui = { version = "0.31", features = ["persistence", "color-hex"] }
-egui_extras = { version = "0.31", features = ["all_loaders"] }
-egui_tiles = { version = "0.12" }
+eframe = { version = "0.31.0", features = ["persistence"] }
+egui = { version = "0.31.0", features = ["persistence", "color-hex"] }
+egui_extras = { version = "0.31.0", features = ["all_loaders"] }
+egui_tiles = { version = "0.12.0" }
 egui-file-dialog = "0.9.0"
 
 log = "0.4.22"

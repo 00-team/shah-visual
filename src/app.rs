@@ -5,18 +5,21 @@ use std::path::PathBuf;
 use eframe::{App, CreationContext};
 use egui::Context;
 use egui::ViewportCommand;
+use egui_file_dialog as efd;
 use shah::error::SystemError;
+use egui_tiles as et;
 
-use crate::config::config;
+use crate::database::Database;
 use crate::shortcuts as sc;
+use crate::tiles;
 
 // #[derive(Default)]
 pub struct ShahApp {
     settings: bool,
     fullscreen: bool,
     side_panel: bool,
-    // tree: egui_tiles::Tree<MyPane>,
-    // behavior: MyBehavior,
+    tree: egui_tiles::Tree<Database>,
+    behavior: tiles::Behavior,
     frame: f32,
     cpu_usage: f32,
     db_paths: Vec<PathBuf>,
@@ -30,6 +33,7 @@ impl ShahApp {
             style.spacing.scroll.bar_width = w;
             style.spacing.scroll.floating_allocated_width = w - 2.0;
             style.spacing.scroll.handle_min_length = 24.0;
+            style.visuals.slider_trailing_fill = true;
 
             style.wrap_mode = Some(egui::TextWrapMode::Extend);
             for (_, font_id) in style.text_styles.iter_mut() {
@@ -40,34 +44,127 @@ impl ShahApp {
         // let db = Database::init();
 
         // let mut tiles = egui_tiles::Tiles::default();
-        // let tabs = vec![
-        // tiles.insert_pane(MyPane::Index(db.heads)),
-        // tiles.insert_pane(MyPane::Snake(db.snake)),
-        // tiles.insert_pane(MyPane::Origin(db.origins)),
-        // tiles.insert_pane(MyPane::Pond(db.ponds)),
-        // tiles.insert_pane(MyPane::Note(db.notes)),
-        // ];
-        // let root = tiles.insert_horizontal_tile(tabs);
-        // let tree = egui_tiles::Tree::new("main_tree", root, tiles);
+        // let root = tiles.insert_horizontal_tile(vec![]);
+        // let tree = egui_tiles::Tree::empty("main-tree");
 
         let config = crate::config::config();
-        let file_dialog = egui_file_dialog::FileDialog::new().add_quick_access("Hi", |qa| {
-            for (d, p) in config.quick_access.iter() {
-                qa.add_path(&d, p);
-            }
-        });
 
-        Ok(Self {
+        let mut file_dialog = efd::FileDialog::new()
+            .anchor(egui::Align2::CENTER_CENTER, (0.0, 0.0))
+            .title("Select Databases");
+
+        if !config.quick_access.is_empty() {
+            file_dialog = file_dialog.add_quick_access("Quick Access", |qa| {
+                for (d, p) in config.quick_access.iter() {
+                    qa.add_path(&d, p);
+                }
+            });
+
+            let init = config.quick_access[0].1.clone();
+            file_dialog = file_dialog.initial_directory(init);
+        }
+
+        let mut app = Self {
             settings: false,
             fullscreen: false,
-            side_panel: false,
-            // tree: egui_tiles::Tree<MyPane>,
-            // behavior: MyBehavior,
+            side_panel: true,
+            tree: egui_tiles::Tree::empty("main-tree"),
+            behavior: tiles::Behavior {},
             frame: 0.0,
             cpu_usage: 0.0,
             db_paths: vec![],
             file_dialog,
-        })
+        };
+
+        app.add_db_path("/home/i007c/projects/00-team/shah/data/".into());
+
+        Ok(app)
+    }
+
+    fn add_database(&mut self, path: PathBuf) {
+
+        // for (tid, tile) in self.tree.tiles.iter() {
+        //     if let et::Tile::Pane(p) = tile {
+        //         if p.path == path {
+        //             self.tree.tiles.remove(*tid);
+        //             break;
+        //         }
+        //     }
+        // }
+
+        let db = match Database::new(path) {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("error init new database: {e:#?}");
+                return;
+            }
+        };
+
+
+        let root = match self.tree.root {
+            Some(rid) => rid,
+            None => {
+                let rid = self.tree.tiles.insert_horizontal_tile(vec![]);
+                self.tree.root = Some(rid);
+                rid
+            }
+        };
+
+        if let Some(tid) = self.tree.tiles.find_pane(&db) {
+            self.tree.tiles.insert(tid, et::Tile::Pane(db));
+        } else {
+            let tid = self.tree.tiles.insert_pane(db);
+            self.tree.move_tile_to_container(tid, root, 0, false);
+        }
+
+
+        // log::info!("root: {:?}", self.tree.root);
+        // log::info!("root(): {:?}", self.tree.root());
+        // let root = self.tree.root.expect("no tree root");
+        // let pane = self.tree.tiles.insert_pane(db);
+        // let tid = self.tree.tiles.insert_pane(db);
+        // self.tree.tiles.insert_tab_tile(root, Tile::Pane(db));
+        // if let Some(root) = self.tree.root {}
+    }
+
+    fn _add_db_path(
+        &mut self, path: PathBuf, depth: usize, total: usize,
+    ) -> usize {
+        if total >= 1000 {
+            return 0;
+        }
+        if depth > 5 {
+            return 0;
+        }
+
+        if path.is_dir() {
+            let mut it = path.read_dir().unwrap();
+            let max = 1000 - total;
+            let mut n = 0usize;
+            while let Some(Ok(p)) = it.next() {
+                n += self._add_db_path(p.path(), depth + 1, total + 1);
+                if n > max {
+                    return n;
+                }
+            }
+            return n;
+        }
+
+        if path.is_file() {
+            self.db_paths.push(path.clone());
+        }
+
+        1
+    }
+
+    pub fn add_db_path(&mut self, path: PathBuf) {
+        self._add_db_path(path, 0, 0);
+    }
+
+    pub fn add_db_paths(&mut self, paths: Vec<PathBuf>) {
+        for p in paths {
+            self.add_db_path(p);
+        }
     }
 }
 
@@ -82,6 +179,9 @@ impl App for ShahApp {
         if ctx.input_mut(|i| i.consume_shortcut(&sc::FULLSCREEN)) {
             self.fullscreen = !self.fullscreen;
         }
+        if ctx.input_mut(|i| i.consume_shortcut(&sc::OPEN_FILE)) {
+            self.file_dialog.pick_multiple();
+        }
 
         ctx.send_viewport_cmd(ViewportCommand::Fullscreen(self.fullscreen));
         egui::Window::new("Settings")
@@ -94,11 +194,18 @@ impl App for ShahApp {
             .frame(egui::Frame::default().inner_margin(8.0))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("settings").clicked() {
-                        self.settings = !self.settings;
+                    if ui.button("☰").clicked() {
+                        self.side_panel = !self.side_panel;
                     }
-                    ui.checkbox(&mut self.fullscreen, "fullscreen");
-                    ui.checkbox(&mut self.side_panel, "side panel");
+                    ui.menu_button("File", |ui| {
+                        if ui.button("Open").clicked() {
+                            self.file_dialog.pick_multiple();
+                        }
+                        if ui.button("settings").clicked() {
+                            self.settings = !self.settings;
+                        }
+                        ui.checkbox(&mut self.fullscreen, "fullscreen");
+                    });
                     self.frame += 1.0;
                     if self.frame % 10.0 == 0.0 {
                         let cpu = f.info().cpu_usage.unwrap_or_default();
@@ -108,30 +215,31 @@ impl App for ShahApp {
                 })
             });
 
-        egui::SidePanel::right("side-panel")
+        egui::SidePanel::left("left-side-panel")
             .resizable(false)
-            .show_animated(ctx, self.side_panel, |_ui| {});
+            .show_animated(ctx, self.side_panel, |ui| {
+                ui.label(format!("db paths: {}", self.db_paths.len()));
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Drag-and-drop files onto the window!");
-
-            if ui.button("add databases").clicked() {
-                self.file_dialog.pick_multiple();
-            }
-
-            self.file_dialog.update(ctx);
-            if let Some(paths) = self.file_dialog.take_picked_multiple() {
-                self.db_paths = paths;
-            }
-
-            ui.group(|ui| {
-                ui.label("db paths:");
-                for p in self.db_paths.iter() {
-                    ui.monospace(format!("{p:?}"));
-                }
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for p in self.db_paths.clone().iter() {
+                        let filename = p.file_name().unwrap().to_str().unwrap();
+                        if ui.button(filename).clicked() {
+                            self.add_database(p.clone());
+                        }
+                    }
+                });
             });
-        });
 
-        // egui::CentralPanel::default().show(ctx, |ui| self.tree.ui(&mut self.behavior, ui));
+        self.file_dialog.update(ctx);
+        if let Some(paths) = self.file_dialog.take_picked_multiple() {
+            self.add_db_paths(paths);
+        }
+
+        // egui::CentralPanel::default().show(ctx, |ui| {
+        //     ui.group(|ui| {});
+        // });
+
+        egui::CentralPanel::default()
+            .show(ctx, |ui| self.tree.ui(&mut self.behavior, ui));
     }
 }

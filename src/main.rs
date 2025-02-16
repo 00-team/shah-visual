@@ -1,8 +1,12 @@
 mod app;
 mod config;
 mod shortcuts;
+mod tiles;
 mod utils;
-// mod db;
+mod database;
+mod error;
+
+pub use error::Result;
 
 fn main() {
     unsafe { std::env::set_var("RUST_LOG", "info") };
