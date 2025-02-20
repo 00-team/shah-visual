@@ -9,14 +9,27 @@ impl et::Behavior<Database> for Behavior {
         egui::WidgetText::from(db.title())
     }
 
+    fn simplification_options(&self) -> et::SimplificationOptions {
+        et::SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        }
+    }
+
+    fn is_tab_closable(&self, _: &et::Tiles<Database>, _: et::TileId) -> bool {
+        true
+    }
+
     fn pane_ui(
         &mut self, ui: &mut egui::Ui, _: et::TileId, db: &mut Database,
     ) -> et::UiResponse {
-        match &mut db.kind {
-            DatabaseKind::Entity(edb) => {
-                edb.show(ui);
+        egui::Frame::new().inner_margin(4.0).show(ui, |ui| {
+            match &mut db.kind {
+                DatabaseKind::Entity(edb) => {
+                    edb.show(ui);
+                }
             }
-        }
+        });
         // ui.label(&pane.title);
 
         // match pane {
@@ -179,16 +192,5 @@ impl et::Behavior<Database> for Behavior {
         // }
 
         Default::default()
-    }
-
-    fn simplification_options(&self) -> et::SimplificationOptions {
-        et::SimplificationOptions {
-            all_panes_must_have_tabs: true,
-            ..Default::default()
-        }
-    }
-
-    fn is_tab_closable(&self, _: &et::Tiles<Database>, _: et::TileId) -> bool {
-        true
     }
 }

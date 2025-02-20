@@ -6,8 +6,8 @@ use eframe::{App, CreationContext};
 use egui::Context;
 use egui::ViewportCommand;
 use egui_file_dialog as efd;
-use shah::error::SystemError;
 use egui_tiles as et;
+use shah::error::SystemError;
 
 use crate::database::Database;
 use crate::shortcuts as sc;
@@ -82,15 +82,18 @@ impl ShahApp {
     }
 
     fn add_database(&mut self, path: PathBuf) {
+        let old = self.tree.tiles.iter().find_map(|(tid, t)| {
+            if let et::Tile::Pane(p) = t {
+                if p.path == path {
+                    return Some(tid);
+                }
+            }
+            None
+        });
 
-        // for (tid, tile) in self.tree.tiles.iter() {
-        //     if let et::Tile::Pane(p) = tile {
-        //         if p.path == path {
-        //             self.tree.tiles.remove(*tid);
-        //             break;
-        //         }
-        //     }
-        // }
+        if let Some(id) = old {
+            self.tree.tiles.remove(*id);
+        }
 
         let db = match Database::new(path) {
             Ok(v) => v,
@@ -100,31 +103,15 @@ impl ShahApp {
             }
         };
 
+        let old_root = self.tree.root;
 
-        let root = match self.tree.root {
-            Some(rid) => rid,
-            None => {
-                let rid = self.tree.tiles.insert_horizontal_tile(vec![]);
-                self.tree.root = Some(rid);
-                rid
-            }
-        };
+        let tab = vec![self.tree.tiles.insert_pane(db)];
+        let new_root = self.tree.tiles.insert_horizontal_tile(tab);
+        self.tree.root = Some(new_root);
 
-        if let Some(tid) = self.tree.tiles.find_pane(&db) {
-            self.tree.tiles.insert(tid, et::Tile::Pane(db));
-        } else {
-            let tid = self.tree.tiles.insert_pane(db);
-            self.tree.move_tile_to_container(tid, root, 0, false);
+        if let Some(rid) = old_root {
+            self.tree.move_tile_to_container(rid, new_root, 1, false);
         }
-
-
-        // log::info!("root: {:?}", self.tree.root);
-        // log::info!("root(): {:?}", self.tree.root());
-        // let root = self.tree.root.expect("no tree root");
-        // let pane = self.tree.tiles.insert_pane(db);
-        // let tid = self.tree.tiles.insert_pane(db);
-        // self.tree.tiles.insert_tab_tile(root, Tile::Pane(db));
-        // if let Some(root) = self.tree.root {}
     }
 
     fn _add_db_path(
@@ -170,7 +157,7 @@ impl ShahApp {
 
 impl App for ShahApp {
     fn persist_egui_memory(&self) -> bool {
-        false
+        true
     }
     fn update(&mut self, ctx: &Context, f: &mut eframe::Frame) {
         if ctx.input_mut(|i| i.consume_shortcut(&sc::QUIT)) {
