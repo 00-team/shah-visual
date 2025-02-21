@@ -9,7 +9,7 @@ use egui_file_dialog as efd;
 use egui_tiles as et;
 use shah::error::SystemError;
 
-use crate::database::Database;
+use crate::db::DbTile;
 use crate::shortcuts as sc;
 use crate::tiles;
 
@@ -18,7 +18,7 @@ pub struct ShahApp {
     settings: bool,
     fullscreen: bool,
     side_panel: bool,
-    tree: egui_tiles::Tree<Database>,
+    tree: egui_tiles::Tree<DbTile>,
     behavior: tiles::Behavior,
     frame: f32,
     cpu_usage: f32,
@@ -95,7 +95,7 @@ impl ShahApp {
             self.tree.tiles.remove(*id);
         }
 
-        let db = match Database::new(path) {
+        let db = match DbTile::new(path) {
             Ok(v) => v,
             Err(e) => {
                 log::error!("error init new database: {e:#?}");

@@ -6,70 +6,12 @@ use std::{fs::OpenOptions, os::unix::fs::FileExt, path::PathBuf};
 
 use egui_extras as ee;
 use shah::db::entity::{EntityHead, EntityKochProg, ENTITY_META};
-use shah::models::{Binary, DbHead, Gene, Schema, SchemaModel, ShahMagicDb};
+use shah::models::{Binary, Gene, Schema, SchemaModel};
 use shah::DbError;
 
 use crate::Result;
 
-pub struct Database {
-    pub kind: DatabaseKind,
-    pub path: PathBuf,
-    #[allow(dead_code)]
-    pub name: String,
-}
-
-impl PartialEq for Database {
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
-    }
-}
-
-impl Database {
-    pub fn new(path: PathBuf) -> Result<Self> {
-        let name = path.file_name().unwrap().to_str().unwrap().to_string();
-        Ok(Self { kind: DatabaseKind::new(path.clone())?, name, path })
-    }
-
-    pub fn title(&self) -> String {
-        self.kind.title()
-    }
-}
-
-pub enum DatabaseKind {
-    Entity(EntityDb),
-}
-
-impl DatabaseKind {
-    pub fn new(path: PathBuf) -> Result<Self> {
-        let file = OpenOptions::new().read(true).open(&path)?;
-        let mut db_head = DbHead::default();
-        file.read_exact_at(db_head.as_binary_mut(), 0)?;
-
-        if !db_head.magic.is_valid() {
-            return Err(DbError::InvalidDbHead)?;
-        }
-        if db_head.magic.is_custom() {
-            return Err(DbError::InvalidDbHead)?;
-        }
-
-        Ok(match db_head.magic.db() {
-            ShahMagicDb::Entity => match EntityDb::init(path) {
-                Ok(v) => Self::Entity(v),
-                Err(err) => {
-                    log::error!("init error: {err:#?}");
-                    return Err(DbError::InvalidDbHead)?;
-                }
-            },
-            _ => return Err(DbError::InvalidDbHead)?,
-        })
-    }
-
-    pub fn title(&self) -> String {
-        match self {
-            Self::Entity(edb) => format!("{}.{}", edb.name, edb.revision),
-        }
-    }
-}
+use super::Database;
 
 macro_rules! _from_iter {
     (str) => {{
@@ -297,11 +239,11 @@ fn show_schema_value(
     }
 }
 
-struct Field {
-    range: Range<usize>,
-    show: fn(value: &[u8], ui: &mut egui::Ui),
-    name: String,
-    visible: bool,
+pub struct Field {
+    pub range: Range<usize>,
+    pub show: fn(value: &[u8], ui: &mut egui::Ui),
+    pub name: String,
+    pub visible: bool,
 }
 
 impl Field {
@@ -335,7 +277,7 @@ impl Field {
     }
 
     fn get_show(schema: &Schema) -> fn(&[u8], &mut egui::Ui) {
-        fn do_nothing(v: &[u8], ui: &mut egui::Ui) {}
+        fn do_nothing(_: &[u8], _: &mut egui::Ui) {}
 
         macro_rules! schema_num_show {
             ($ty:ty) => {{
@@ -417,23 +359,40 @@ impl Field {
 }
 
 pub struct EntityDb {
-    file: File,
+    pub file: File,
     //path: PathBuf,
-    name: String,
-    revision: u16,
-    item_size: u64,
-    schema: SchemaModel,
-    prev_id: u64,
-    id: u64,
-    total: u64,
-    koch_prog: EntityKochProg,
-    items: Vec<Vec<u8>>,
-    n_items: usize,
-    prev_n_items: usize,
-    fields: Vec<Field>,
+    pub name: String,
+    pub revision: u16,
+    pub item_size: u64,
+    pub schema: SchemaModel,
+    pub prev_id: u64,
+    pub id: u64,
+    pub total: u64,
+    pub koch_prog: EntityKochProg,
+    pub items: Vec<Vec<u8>>,
+    pub n_items: usize,
+    pub prev_n_items: usize,
+    pub fields: Vec<Field>,
+}
+
+impl Database for EntityDb {
+    fn show(&mut self, ui: &mut egui::Ui) {
+        self.show(ui);
+    }
+    fn title(&self) -> String {
+        self.title()
+    }
+    fn init(path: PathBuf) -> Result<Self> {
+        Self::init(path)
+    }
 }
 
 impl EntityDb {
+
+    fn title(&self) -> String {
+        format!("{}.{}", self.name, self.revision)
+    }
+
     pub fn init(path: PathBuf) -> Result<Self> {
         let file = OpenOptions::new().read(true).open(&path)?;
         let mut head = EntityHead::default();

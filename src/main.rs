@@ -1,9 +1,9 @@
 mod app;
+mod db;
 mod config;
 mod shortcuts;
 mod tiles;
 mod utils;
-mod database;
 mod error;
 
 pub use error::Result;

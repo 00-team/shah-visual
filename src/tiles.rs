@@ -1,11 +1,11 @@
-use crate::database::{Database, DatabaseKind};
+use crate::db::DbTile;
 use egui_tiles as et;
 
 #[derive(Default)]
 pub struct Behavior {}
 
-impl et::Behavior<Database> for Behavior {
-    fn tab_title_for_pane(&mut self, db: &Database) -> egui::WidgetText {
+impl et::Behavior<DbTile> for Behavior {
+    fn tab_title_for_pane(&mut self, db: &DbTile) -> egui::WidgetText {
         egui::WidgetText::from(db.title())
     }
 
@@ -16,19 +16,15 @@ impl et::Behavior<Database> for Behavior {
         }
     }
 
-    fn is_tab_closable(&self, _: &et::Tiles<Database>, _: et::TileId) -> bool {
+    fn is_tab_closable(&self, _: &et::Tiles<DbTile>, _: et::TileId) -> bool {
         true
     }
 
     fn pane_ui(
-        &mut self, ui: &mut egui::Ui, _: et::TileId, db: &mut Database,
+        &mut self, ui: &mut egui::Ui, _: et::TileId, db: &mut DbTile,
     ) -> et::UiResponse {
         egui::Frame::new().inner_margin(4.0).show(ui, |ui| {
-            match &mut db.kind {
-                DatabaseKind::Entity(edb) => {
-                    edb.show(ui);
-                }
-            }
+            db.show(ui);
         });
         // ui.label(&pane.title);
 
