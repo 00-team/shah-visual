@@ -1,13 +1,49 @@
 mod entity;
 mod trie_const;
-
 use crate::Result;
 use entity::EntityDb;
 use shah::models::{Binary, DbHead, ShahMagicDb};
 use shah::DbError;
+use std::ops::{Deref, DerefMut};
 use std::{fs::OpenOptions, os::unix::fs::FileExt, path::PathBuf};
+use trie_const::TrieConstDb;
 
-use self::trie_const::TrieConstDb;
+pub struct Value<T> {
+    main: T,
+    past: T,
+}
+
+impl<T: Clone + PartialEq> Value<T> {
+    pub fn new(value: T) -> Self {
+        Self { main: value.clone(), past: value }
+    }
+
+    pub fn changed(&mut self) -> bool {
+        if self.main != self.past {
+            self.past = self.main.clone();
+            return true;
+        }
+
+        false
+    }
+
+    pub fn main(&self) -> T {
+        self.main.clone()
+    }
+}
+
+impl<T> Deref for Value<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.main
+    }
+}
+
+impl<T> DerefMut for Value<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.main
+    }
+}
 
 trait Database: Sized {
     fn init(path: PathBuf) -> Result<Self>;

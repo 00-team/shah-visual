@@ -1,56 +1,12 @@
+use super::{Database, Value};
+use crate::Result;
+use shah::db::trie_const::TrieConstMeta;
+use shah::models::Binary;
+use shah::{AsUtf8Str, DbError};
 use std::fs::File;
-use std::io::{Seek, SeekFrom};
-use std::ops::{Deref, DerefMut, Range};
+use std::ops::DerefMut;
 use std::usize;
 use std::{fs::OpenOptions, os::unix::fs::FileExt, path::PathBuf};
-
-use egui::TextBuffer;
-use egui_extras as ee;
-use shah::db::entity::{EntityHead, EntityKochProg, ENTITY_META};
-use shah::db::trie_const::TrieConstMeta;
-use shah::models::{Binary, Gene, Schema, SchemaModel};
-use shah::{AsUtf8Str, DbError};
-
-use crate::Result;
-
-use super::Database;
-
-pub struct Value<T> {
-    main: T,
-    past: T,
-}
-
-impl<T: Clone + PartialEq> Value<T> {
-    pub fn new(value: T) -> Self {
-        Self { main: value.clone(), past: value }
-    }
-
-    pub fn changed(&mut self) -> bool {
-        if self.main != self.past {
-            self.past = self.main.clone();
-            return true;
-        }
-
-        false
-    }
-
-    pub fn main(&self) -> T {
-        self.main.clone()
-    }
-}
-
-impl<T> Deref for Value<T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.main
-    }
-}
-
-impl<T> DerefMut for Value<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.main
-    }
-}
 
 pub struct TrieConstDb {
     file: File,
@@ -62,7 +18,8 @@ pub struct TrieConstDb {
     cache_skip: Value<u64>,
     cache_show: Value<u64>,
     cache_data: Vec<u64>,
-    cached_cache_ui: String,
+    cached_cache_ui: Vec<(String, u64)>,
+    index_pos: Option<u64>,
 }
 
 impl Database for TrieConstDb {
@@ -73,9 +30,13 @@ impl Database for TrieConstDb {
     fn show(&mut self, ui: &mut egui::Ui) {
         ui.label("trie const db");
         ui.label(format!("abc: {} | {:?}", self.abc.len(), self.abc));
-        ui.label(format!("cache level: {}", self.cache));
-        ui.label(format!("index level: {}", self.index));
-        ui.label(format!("key length: {}", self.cache + self.index));
+        ui.label(format!(
+            "cache + index = len | {} + {} = {}",
+            self.cache,
+            self.index,
+            self.cache + self.index
+        ));
+        ui.label(format!("index pos: {:?}", self.index_pos));
 
         ui.add(
             egui::Slider::new(
@@ -120,7 +81,8 @@ impl Database for TrieConstDb {
             cache_skip: Value::new(0),
             cache_show: Value::new(10),
             cache_data: Vec::with_capacity(cache_len as usize),
-            cached_cache_ui: String::new(),
+            cached_cache_ui: Vec::new(),
+            index_pos: None,
         };
 
         db.update_cache_data()?;
@@ -150,14 +112,16 @@ impl TrieConstDb {
         self.cached_cache_ui.clear();
         let mut did_wrote_zero = false;
         let len = self.cache_data.len();
+        let sk = skip as usize;
+        let w = self.cache as usize;
         for (i, p) in self.cache_data.iter().enumerate() {
+            let idx = sk + i;
             let is_last = i + 1 == len;
             if did_wrote_zero && *p == 0 && !is_last {
                 continue;
             }
 
-            self.cached_cache_ui
-                .push_str(&format!("{i:0>w$}: {p}\n", w = self.cache as usize));
+            self.cached_cache_ui.push((format!("09 {idx:0>w$}"), *p));
             did_wrote_zero = *p == 0;
         }
 
@@ -165,10 +129,23 @@ impl TrieConstDb {
     }
 
     fn show_cache(&mut self, ui: &mut egui::Ui) {
+        ui.separator();
         if self.cache_skip.changed() || self.cache_show.changed() {
             self.update_cache_data().expect("could not update cache data");
         }
 
-        ui.label(&self.cached_cache_ui);
+        for (i, p) in self.cached_cache_ui.iter() {
+            ui.horizontal(|ui| {
+                ui.label(i);
+                ui.label(egui::RichText::new(":").color(egui::Color32::GOLD));
+                if *p == 0 {
+                    ui.label("---");
+                } else {
+                    if ui.button(p.to_string()).clicked() {
+                        self.index_pos = Some(*p);
+                    }
+                }
+            });
+        }
     }
 }
