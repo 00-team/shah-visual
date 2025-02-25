@@ -367,7 +367,7 @@ impl EntityDb {
     fn show_items(&mut self, ui: &mut egui::Ui) {
         let fields = self.fields.iter().filter(|f| f.visible);
         ee::TableBuilder::new(ui)
-            .column(ee::Column::exact(20.0))
+            .column(ee::Column::auto().resizable(true).at_least(50.0))
             .columns(
                 ee::Column::remainder()
                     .resizable(true)
@@ -378,7 +378,7 @@ impl EntityDb {
             .striped(true)
             .resizable(true)
             .sense(egui::Sense::click())
-            .header(23.0, |mut header| {
+            .header(25.0, |mut header| {
                 header.col(|ui| {
                     ui.heading("id");
                 });

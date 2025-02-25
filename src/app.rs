@@ -1,5 +1,6 @@
 // use crate::db::Database;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use eframe::{App, CreationContext};
@@ -10,8 +11,10 @@ use egui_tiles as et;
 use shah::error::SystemError;
 
 use crate::db::DbTile;
+use crate::fonts;
 use crate::shortcuts as sc;
 use crate::tiles;
+use crate::utils::db_name;
 
 // #[derive(Default)]
 pub struct ShahApp {
@@ -22,7 +25,7 @@ pub struct ShahApp {
     behavior: tiles::Behavior,
     frame: f32,
     cpu_usage: f32,
-    db_paths: Vec<PathBuf>,
+    db_paths: HashMap<String, Vec<PathBuf>>,
     file_dialog: egui_file_dialog::FileDialog,
 }
 
@@ -40,6 +43,8 @@ impl ShahApp {
                 font_id.size += 5.0;
             }
         });
+
+        fonts::fonts_update(&cc.egui_ctx);
 
         // let db = Database::init();
 
@@ -64,7 +69,7 @@ impl ShahApp {
             file_dialog = file_dialog.initial_directory(init);
         }
 
-        let mut app = Self {
+        let app = Self {
             settings: false,
             fullscreen: false,
             side_panel: true,
@@ -72,11 +77,11 @@ impl ShahApp {
             behavior: tiles::Behavior {},
             frame: 0.0,
             cpu_usage: 0.0,
-            db_paths: vec![],
+            db_paths: HashMap::new(),
             file_dialog,
         };
 
-        app.add_db_path("/home/i007c/projects/00-team/shah/data/".into());
+        // app.add_db_path("/home/i007c/projects/00-team/shah/data/".into());
 
         Ok(app)
     }
@@ -138,10 +143,19 @@ impl ShahApp {
         }
 
         if path.is_file() {
-            self.db_paths.push(path.clone());
+            self._add_file_path(path);
         }
 
         1
+    }
+
+    fn _add_file_path(&mut self, path: PathBuf) {
+        let name = db_name(&path);
+        if let Some(pv) = self.db_paths.get_mut(name) {
+            pv.push(path);
+        } else {
+            self.db_paths.insert(name.to_string(), vec![path]);
+        }
     }
 
     pub fn add_db_path(&mut self, path: PathBuf) {
@@ -208,10 +222,13 @@ impl App for ShahApp {
                 ui.label(format!("db paths: {}", self.db_paths.len()));
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for p in self.db_paths.clone().iter() {
-                        let filename = p.file_name().unwrap().to_str().unwrap();
-                        if ui.button(filename).clicked() {
-                            self.add_database(p.clone());
+                    for (k, pv) in self.db_paths.clone() {
+                        ui.label(k);
+                        for p in pv {
+                            let fx = p.file_name().unwrap().to_str().unwrap();
+                            if ui.button(fx).clicked() {
+                                self.add_database(p);
+                            }
                         }
                     }
                 });

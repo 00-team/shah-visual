@@ -1,4 +1,5 @@
 mod app;
+mod fonts;
 mod db;
 mod config;
 mod shortcuts;

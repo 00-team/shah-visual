@@ -46,3 +46,19 @@
 //         .response
 //     }
 // }
+
+use std::path::{Component, PathBuf};
+
+pub fn db_name(path: &PathBuf) -> &str {
+    let mut after_data = false;
+    for p in path.components().rev() {
+        let Component::Normal(a) = p else { continue };
+        if after_data {
+            return a.to_str().unwrap();
+        }
+        if a == "data" {
+            after_data = true;
+        }
+    }
+    "root"
+}
