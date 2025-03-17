@@ -49,16 +49,22 @@
 
 use std::path::{Component, PathBuf};
 
-pub fn db_name(path: &PathBuf) -> &str {
+pub fn db_name(path: &PathBuf) -> (&str, &str, &str) {
     let mut after_data = false;
+    let mut x = "";
+    let mut y = "";
     for p in path.components().rev() {
         let Component::Normal(a) = p else { continue };
+        let g = a.to_str().unwrap();
         if after_data {
-            return a.to_str().unwrap();
+            return (g, x, y);
         }
         if a == "data" {
             after_data = true;
+        } else {
+            y = x;
+            x = g;
         }
     }
-    "root"
+    ("", x, y)
 }

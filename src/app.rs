@@ -25,7 +25,7 @@ pub struct ShahApp {
     behavior: tiles::Behavior,
     frame: f32,
     cpu_usage: f32,
-    db_paths: HashMap<String, Vec<PathBuf>>,
+    db_paths: HashMap<String, HashMap<String, Vec<(String, PathBuf)>>>,
     file_dialog: egui_file_dialog::FileDialog,
 }
 
@@ -150,11 +150,20 @@ impl ShahApp {
     }
 
     fn _add_file_path(&mut self, path: PathBuf) {
-        let name = db_name(&path);
-        if let Some(pv) = self.db_paths.get_mut(name) {
-            pv.push(path);
+        let (scope, db, kind) = db_name(&path);
+        let kind = kind.to_string();
+        if let Some(dv) = self.db_paths.get_mut(scope) {
+            if let Some(xx) = dv.get_mut(db) {
+                xx.push((kind, path));
+            } else {
+                dv.insert(db.to_string(), vec![(kind, path)]);
+            }
         } else {
-            self.db_paths.insert(name.to_string(), vec![path]);
+            // self.db_paths.insert(scope.to_string(), vec![(title, path)]);
+            self.db_paths.insert(
+                scope.to_string(),
+                HashMap::from_iter([(db.to_string(), vec![(kind, path)])]),
+            );
         }
     }
 
@@ -198,14 +207,17 @@ impl App for ShahApp {
                     if ui.button("☰").clicked() {
                         self.side_panel = !self.side_panel;
                     }
+                    if ui.button("Open").clicked() {
+                        self.file_dialog.pick_multiple();
+                    }
                     ui.menu_button("File", |ui| {
-                        if ui.button("Open").clicked() {
-                            self.file_dialog.pick_multiple();
-                        }
                         if ui.button("settings").clicked() {
                             self.settings = !self.settings;
                         }
-                        ui.checkbox(&mut self.fullscreen, "fullscreen");
+                        ui.checkbox(&mut self.fullscreen, "Full Screen");
+                        if ui.button("Quit").clicked() {
+                            ctx.send_viewport_cmd(ViewportCommand::Close);
+                        }
                     });
                     self.frame += 1.0;
                     if self.frame % 10.0 == 0.0 {
@@ -223,13 +235,39 @@ impl App for ShahApp {
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for (k, pv) in self.db_paths.clone() {
-                        ui.label(k);
-                        for p in pv {
-                            let fx = p.file_name().unwrap().to_str().unwrap();
-                            if ui.button(fx).clicked() {
-                                self.add_database(p);
+                        let col = egui::CollapsingHeader::new(&k)
+                            .id_salt(("scope", &k))
+                            .default_open(self.db_paths.len() == 1);
+                        // .show_background(true);
+
+                        col.show(ui, |ui| {
+                            for (db, pfs) in pv.iter() {
+                                if pfs.is_empty() {
+                                    continue;
+                                }
+                                if pfs.len() == 1 {
+                                    let (tit, p) = &pfs[0];
+                                    let n = format!("{db}/{tit}");
+                                    if ui.button(n).clicked() {
+                                        self.add_database(p.clone());
+                                    }
+                                    continue;
+                                }
+
+                                let db_col = egui::CollapsingHeader::new(db)
+                                    .id_salt(("dbccxx", db))
+                                    .default_open(pfs.len() < 5);
+                                // .show_background(true);
+
+                                db_col.show(ui, |ui| {
+                                    for (title, p) in pfs {
+                                        if ui.button(title).clicked() {
+                                            self.add_database(p.clone());
+                                        }
+                                    }
+                                });
                             }
-                        }
+                        });
                     }
                 });
             });

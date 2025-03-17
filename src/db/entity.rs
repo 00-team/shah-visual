@@ -1,4 +1,5 @@
 use super::{Database, Value};
+use crate::utils::db_name;
 use crate::Result;
 use egui_extras as ee;
 use shah::db::entity::{EntityHead, EntityKochProg, ENTITY_META};
@@ -156,6 +157,9 @@ pub struct EntityDb {
     pub file: File,
     //path: PathBuf,
     pub name: String,
+    #[allow(dead_code)]
+    pub scope: String,
+    pub prefix: String,
     pub revision: u16,
     pub schema: SchemaModel,
     pub koch_prog: EntityKochProg,
@@ -212,7 +216,11 @@ impl Database for EntityDb {
 
 impl EntityDb {
     fn title(&self) -> String {
-        format!("{}.{}", self.name, self.revision)
+        if self.prefix.is_empty() {
+            format!("{}.{}", self.name, self.revision)
+        } else {
+            format!("{}/{}.{}", self.prefix, self.name, self.revision)
+        }
     }
 
     pub fn init(path: PathBuf) -> Result<Self> {
@@ -238,10 +246,16 @@ impl EntityDb {
             i += s;
         }
 
+        let (scope, prefix, _name) = db_name(&path);
+        let head_name = head.db_head.name().to_string();
+        let prefix = if head_name == prefix { "" } else { prefix };
+
         let mut db = Self {
             file,
             // path,
-            name: head.db_head.name().to_string(),
+            name: head_name,
+            prefix: prefix.to_string(),
+            scope: scope.to_string(),
             revision: head.db_head.revision,
             item_size: head.item_size,
             item_skip: Value::new(0),
