@@ -5,7 +5,6 @@ use shah::models::Binary;
 use shah::{AsUtf8Str, DbError};
 use std::fs::File;
 use std::ops::DerefMut;
-use std::usize;
 use std::{fs::OpenOptions, os::unix::fs::FileExt, path::PathBuf};
 
 pub struct TrieConstDb {
@@ -140,10 +139,8 @@ impl TrieConstDb {
                 ui.label(egui::RichText::new(":").color(egui::Color32::GOLD));
                 if *p == 0 {
                     ui.label("---");
-                } else {
-                    if ui.button(p.to_string()).clicked() {
-                        self.index_pos = Some(*p);
-                    }
+                } else if ui.button(p.to_string()).clicked() {
+                    self.index_pos = Some(*p);
                 }
             });
         }

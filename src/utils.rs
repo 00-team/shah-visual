@@ -1,3 +1,5 @@
+use std::path::{Component, Path};
+
 // use shah::models::Gene;
 
 // pub fn gene(gene: &Gene, name: &'static str, ui: &mut egui::Ui) -> egui::Response {
@@ -47,9 +49,7 @@
 //     }
 // }
 
-use std::path::{Component, PathBuf};
-
-pub fn db_name(path: &PathBuf) -> (&str, &str, &str) {
+pub fn db_name(path: &Path) -> (&str, &str, &str) {
     let mut after_data = false;
     let mut x = "";
     let mut y = "";

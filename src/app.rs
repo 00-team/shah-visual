@@ -61,7 +61,7 @@ impl ShahApp {
         if !config.quick_access.is_empty() {
             file_dialog = file_dialog.add_quick_access("Quick Access", |qa| {
                 for (d, p) in config.quick_access.iter() {
-                    qa.add_path(&d, p);
+                    qa.add_path(d, p);
                 }
             });
 

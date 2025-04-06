@@ -1,11 +1,11 @@
 mod app;
-mod fonts;
-mod db;
 mod config;
+mod db;
+mod error;
+mod fonts;
 mod shortcuts;
 mod tiles;
 mod utils;
-mod error;
 
 pub use error::Result;
 
@@ -13,8 +13,11 @@ fn main() {
     unsafe { std::env::set_var("RUST_LOG", "info") };
     pretty_env_logger::init();
 
-    let mut native_options = eframe::NativeOptions::default();
-    native_options.persistence_path = Some("./pref.json".into());
+    let native_options = eframe::NativeOptions {
+        persistence_path: Some("./pref.json".into()),
+        ..Default::default()
+    };
+
     eframe::run_native(
         "00-team-test-app",
         native_options,
