@@ -99,15 +99,18 @@ impl Field {
             Schema::Array { is_str, kind, .. } => {
                 if matches!(**kind, Schema::Gene) {
                     fn show_genes(v: &[u8], ui: &mut egui::Ui) {
-                        ui.label("[");
-                        for (i, c) in v.chunks(Gene::S).enumerate() {
-                            ui.horizontal(|ui| {
-                                ui.label(format!("{i}:"));
-                                show_gene(c, ui);
-                                ui.label(",");
-                            });
-                        }
-                        ui.label("]");
+                        let list = v.chunks(Gene::S).enumerate();
+                        let list = list.collect::<Vec<_>>();
+                        let scroll = egui::ScrollArea::vertical();
+                        let scroll = scroll.auto_shrink([false, false]);
+                        scroll.show_rows(ui, 20.0, list.len(), |ui, s| {
+                            for (i, c) in &list[s] {
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("{i}:"));
+                                    show_gene(c, ui);
+                                });
+                            }
+                        });
                     }
                     return (show_genes, false);
                 }
