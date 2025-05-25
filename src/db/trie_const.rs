@@ -1,7 +1,7 @@
 use super::{Database, Value};
 use crate::Result;
 use shah::db::trie_const::TrieConstMeta;
-use shah::models::Binary;
+use shah::models::{Binary, Gene};
 use shah::{AsUtf8Str, DbError};
 use std::fs::File;
 use std::ops::DerefMut;
@@ -13,12 +13,16 @@ pub struct TrieConstDb {
     index: u64,
     cache: u64,
     abc: Vec<char>,
+    abc_len: usize,
     cache_len: u64,
     cache_skip: Value<u64>,
     cache_show: Value<u64>,
     cache_data: Vec<u64>,
     cached_cache_ui: Vec<(String, u64)>,
     index_pos: Option<u64>,
+    index_show: Option<Vec<u64>>,
+    index_show_gene: Option<Vec<Gene>>,
+    read_gene: bool,
 }
 
 impl Database for TrieConstDb {
@@ -51,6 +55,40 @@ impl Database for TrieConstDb {
                 .drag_value_speed(1000.0),
         );
 
+        if let Some(ishow) = &self.index_show {
+            ui.separator();
+            for (i, v) in ishow.clone().iter().enumerate() {
+                ui.horizontal(|ui| {
+                    if *v == 0 {
+                        ui.label(format!("{i}: ---"));
+                        return;
+                    }
+
+                    ui.label(format!("{i}: "));
+                    if ui.button(v.to_string()).clicked() {
+                        self.read_gene = true;
+                        self.index_pos = Some(*v);
+                        self.update_index();
+                    }
+                });
+            }
+        }
+
+        if let Some(ig) = &self.index_show_gene {
+            ui.separator();
+            for (i, g) in ig.clone().iter().enumerate() {
+                ui.horizontal(|ui| {
+                    if g.is_none() {
+                        ui.label(format!("{i}: ---"));
+                        return;
+                    }
+
+                    ui.label(format!("{i}: {g:?}"));
+                });
+            }
+        }
+
+        ui.separator();
         egui::ScrollArea::vertical().show(ui, |ui| self.show_cache(ui));
     }
 
@@ -76,12 +114,16 @@ impl Database for TrieConstDb {
             index: meta.index,
             abc,
             name: meta.db.name().to_string(),
+            abc_len,
             cache_len,
             cache_skip: Value::new(0),
             cache_show: Value::new(10),
             cache_data: Vec::with_capacity(cache_len as usize),
             cached_cache_ui: Vec::new(),
             index_pos: None,
+            index_show: None,
+            index_show_gene: None,
+            read_gene: false,
         };
 
         db.update_cache_data()?;
@@ -127,13 +169,37 @@ impl TrieConstDb {
         Ok(())
     }
 
+    fn update_index(&mut self) {
+        let Some(pos) = self.index_pos else {
+            return;
+        };
+
+        let mut buf = vec![
+            0u8;
+            self.abc_len
+                * if self.read_gene { Gene::S } else { u64::S }
+        ];
+        let Ok(_) = self.file.read_exact_at(&mut buf, pos) else {
+            return;
+        };
+        if self.read_gene {
+            let (_, buf, _) = unsafe { buf.align_to::<Gene>() };
+            assert!(buf.len() == self.abc_len);
+            self.index_show_gene = Some(buf.to_vec());
+        } else {
+            let (_, buf, _) = unsafe { buf.align_to::<u64>() };
+            assert!(buf.len() == self.abc_len);
+            self.index_show = Some(buf.to_vec());
+        }
+    }
+
     fn show_cache(&mut self, ui: &mut egui::Ui) {
         ui.separator();
         if self.cache_skip.changed() || self.cache_show.changed() {
             self.update_cache_data().expect("could not update cache data");
         }
 
-        for (i, p) in self.cached_cache_ui.iter() {
+        for (i, p) in self.cached_cache_ui.clone().iter() {
             ui.horizontal(|ui| {
                 ui.label(i);
                 ui.label(egui::RichText::new(":").color(egui::Color32::GOLD));
@@ -141,6 +207,9 @@ impl TrieConstDb {
                     ui.label("---");
                 } else if ui.button(p.to_string()).clicked() {
                     self.index_pos = Some(*p);
+                    self.read_gene = false;
+                    self.index_show_gene = None;
+                    self.update_index();
                 }
             });
         }
