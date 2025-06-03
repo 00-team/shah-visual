@@ -49,22 +49,23 @@ use std::path::{Component, Path};
 //     }
 // }
 
-pub fn db_name(path: &Path) -> (&str, &str, &str) {
+pub fn db_name(path: &Path) -> (&str, &str, String) {
     let mut after_data = false;
     let mut x = "";
-    let mut y = "";
+    let mut y = Vec::<&str>::new();
     for p in path.components().rev() {
         let Component::Normal(a) = p else { continue };
         let g = a.to_str().unwrap();
         if after_data {
-            return (g, x, y);
+            return (g, x, y[..y.len().min(2)].join("/"));
         }
         if a == "data" {
             after_data = true;
         } else {
-            y = x;
+            y.insert(0, x);
+            // y = format!("{x}/{y}");
             x = g;
         }
     }
-    ("", x, y)
+    ("", x, y[..y.len().min(2)].join("/"))
 }

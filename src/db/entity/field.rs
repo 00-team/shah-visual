@@ -33,15 +33,47 @@ macro_rules! schema_numbers {
     };
 }
 
+type NumberStats = Option<fn(list: &[Vec<u8>], range: Range<usize>) -> String>;
+
 pub struct Field {
     pub range: Range<usize>,
     pub show: fn(value: &[u8], ui: &mut egui::Ui),
     pub name: String,
     pub visible: bool,
     pub show_array: bool,
+    pub number_stats: NumberStats,
 }
 
 impl Field {
+    pub fn get_number_stats(schema: &Schema) -> NumberStats {
+        macro_rules! schema_num_show {
+            ($ty:ty) => {{
+                fn num_stats(list: &[Vec<u8>], range: Range<usize>) -> String {
+                    let mut min = <$ty>::default();
+                    let mut max = <$ty>::default();
+                    let mut total = usize::default();
+                    for item in list {
+                        let v = &item[range.clone()];
+                        let vp = <$ty>::from_le_bytes(v.try_into().unwrap());
+                        min = min.min(vp);
+                        max = max.max(vp);
+                        total += vp as usize;
+                    }
+                    let avg = if !list.is_empty() {
+                        total / list.len()
+                    } else {
+                        Default::default()
+                    };
+                    format!("min/max/avg/total: {min}/{max}/{avg}/{total}")
+                }
+                return Some(num_stats);
+            }};
+        }
+        schema_numbers!(schema, schema_num_show);
+
+        None
+    }
+
     pub fn get_ty(schema: &Schema) -> String {
         macro_rules! schema_num_show {
             ($ty:ty) => {{

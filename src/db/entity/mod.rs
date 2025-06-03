@@ -105,9 +105,11 @@ impl EntityDb {
         for (fi, fs) in schema.fields.iter() {
             let s = fs.size();
             let (show, show_array) = Field::get_show(fs);
+            let range = i..i + s;
             fields.push(Field {
-                range: i..i + s,
                 name: format!("{fi}: {}", Field::get_ty(fs)),
+                number_stats: Field::get_number_stats(fs),
+                range,
                 show,
                 show_array,
                 visible: true,
@@ -197,6 +199,19 @@ impl EntityDb {
         ui.horizontal_wrapped(|ui| {
             for f in self.fields.iter_mut() {
                 ui.checkbox(&mut f.visible, &f.name);
+            }
+        });
+        ui.vertical(|ui| {
+            for f in self.fields.iter() {
+                if !f.visible {
+                    continue;
+                }
+                let Some(ns) = f.number_stats else { continue };
+                ui.label(format!(
+                    "{}: {}",
+                    f.name,
+                    ns(&self.item_data, f.range.clone())
+                ));
             }
         });
         let colps = egui::CollapsingHeader::new("schema").show_background(true);

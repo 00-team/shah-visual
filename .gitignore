@@ -7,3 +7,4 @@ Cargo.lock
 pref.json
 config.toml
 data*
+.pyenv
