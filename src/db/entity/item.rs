@@ -24,7 +24,13 @@ impl EntityDb {
                 });
                 for f in fields.clone() {
                     header.col(|ui| {
-                        ui.heading(&f.name);
+                        if f.number_sort.is_some() {
+                            if ui.button(&f.name).clicked() {
+                                self.sort_by = Some(f.clone());
+                            }
+                        } else {
+                            ui.heading(&f.name);
+                        }
                     });
                 }
             })
@@ -70,6 +76,11 @@ impl EntityDb {
             let pos = ENTITY_META + id * self.item_size;
             self.file.read_exact_at(buf.as_mut_slice(), pos).expect("read");
             self.item_data.push(buf)
+        }
+        if let Some(sb) = &self.sort_by {
+            if let Some(ns) = sb.number_sort {
+                self.item_data.sort_by_key(|item| ns(&item[sb.range.clone()]));
+            }
         }
     }
 

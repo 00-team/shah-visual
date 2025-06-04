@@ -34,17 +34,36 @@ macro_rules! schema_numbers {
 }
 
 type NumberStats = Option<fn(list: &[Vec<u8>], range: Range<usize>) -> String>;
+type NumberSort = Option<fn(item: &[u8]) -> u64>;
 
+#[derive(Debug, Clone)]
 pub struct Field {
+    pub idx: usize,
     pub range: Range<usize>,
     pub show: fn(value: &[u8], ui: &mut egui::Ui),
     pub name: String,
     pub visible: bool,
     pub show_array: bool,
     pub number_stats: NumberStats,
+    pub number_sort: NumberSort,
 }
 
 impl Field {
+pub fn get_number_sort(schema: &Schema) -> NumberSort {
+        macro_rules! schema_num_show {
+            ($ty:ty) => {{
+                fn num_sort(v: &[u8]) -> u64 {
+                    let vp = <$ty>::from_le_bytes(v.try_into().unwrap());
+                    vp as u64
+                }
+                return Some(num_sort);
+            }};
+        }
+        schema_numbers!(schema, schema_num_show);
+
+        None
+    }
+
     pub fn get_number_stats(schema: &Schema) -> NumberStats {
         macro_rules! schema_num_show {
             ($ty:ty) => {{

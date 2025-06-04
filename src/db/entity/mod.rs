@@ -34,6 +34,7 @@ pub struct EntityDb {
     pub item_skip: Value<u64>,
     pub item_show: Value<u64>,
     pub item_data: Vec<Vec<u8>>,
+    pub sort_by: Option<Field>,
     active_item: Option<usize>,
     pub fields: Vec<Field>,
     read_from_mem: bool,
@@ -102,13 +103,15 @@ impl EntityDb {
 
         let mut fields = Vec::<Field>::with_capacity(schema.fields.len());
         let mut i = 0usize;
-        for (fi, fs) in schema.fields.iter() {
+        for (fdx, (fi, fs)) in schema.fields.iter().enumerate() {
             let s = fs.size();
             let (show, show_array) = Field::get_show(fs);
             let range = i..i + s;
             fields.push(Field {
+                idx: fdx,
                 name: format!("{fi}: {}", Field::get_ty(fs)),
                 number_stats: Field::get_number_stats(fs),
+                number_sort: Field::get_number_sort(fs),
                 range,
                 show,
                 show_array,
@@ -135,6 +138,7 @@ impl EntityDb {
             item_total: 0,
             active_item: None,
             koch_prog: Default::default(),
+            sort_by: None,
             fields,
             schema,
             read_from_mem: true,
@@ -195,12 +199,20 @@ impl EntityDb {
                 )
                 .text("show"),
             );
+            if let Some(fsb) = &self.sort_by {
+                ui.separator();
+                if ui.button(format!("sort by: {}", fsb.name)).clicked() {
+                    self.sort_by = None;
+                }
+            }
         });
+        ui.separator();
         ui.horizontal_wrapped(|ui| {
             for f in self.fields.iter_mut() {
                 ui.checkbox(&mut f.visible, &f.name);
             }
         });
+        ui.separator();
         ui.vertical(|ui| {
             for f in self.fields.iter() {
                 if !f.visible {
