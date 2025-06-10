@@ -92,7 +92,7 @@ impl EntityDb {
 
         let item = &self.item_data[idx];
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        egui::ScrollArea::both().show(ui, |ui| {
             for f in self.fields.iter() {
                 ui.label(&f.name);
                 (f.show)(&item[f.range.clone()], ui);
